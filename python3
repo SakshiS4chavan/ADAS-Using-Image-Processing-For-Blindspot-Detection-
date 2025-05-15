@@ -1,0 +1,111 @@
+import RPi.GPIO as GPIO
+import time
+from picamera2 import Picamera2, Preview
+
+# Define GPIO pins
+
+TRIG\_PIN = 23
+ECHO\_PIN = 24
+BUZZER\_PIN = 17
+MOTOR\_PIN1 = 27  # Connect to IN1 of L298N
+MOTOR\_PIN2 = 22  # Connect to IN2 of L298N
+PWM\_PIN = 25
+
+# Set up GPIO pins
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(TRIG\_PIN, GPIO.OUT)
+GPIO.setup(ECHO\_PIN, GPIO.IN)
+GPIO.setup(MOTOR\_PIN1, GPIO.OUT)
+GPIO.setup(MOTOR\_PIN2, GPIO.OUT)
+GPIO.setup(PWM\_PIN, GPIO.OUT)
+GPIO.setup(BUZZER\_PIN, GPIO.OUT)
+
+# Initialize PWM
+
+pwm = GPIO.PWM(PWM\_PIN, 50)  # 50 Hz frequency
+pwm.start(0)  # Initial duty
+
+# Initialize Camera
+
+picam2 = Picamera2()
+camera\_config = picam2.create\_still\_configuration(
+main={"size": (1920, 1080)}, lores={"size": (640, 480)}, display="lores"
+)
+picam2.configure(camera\_config)
+picam2.start\_preview(Preview\.QTGL)
+picam2.start()
+
+def distance\_measurement():
+\# Send 10us pulse to trigger
+GPIO.output(TRIG\_PIN, True)
+time.sleep(0.00001)
+GPIO.output(TRIG\_PIN, False)
+
+```
+# Measure pulse duration
+while GPIO.input(ECHO_PIN) == 0:
+    pulse_start = time.time()
+while GPIO.input(ECHO_PIN) == 1:
+    pulse_end = time.time()
+
+# Calculate distance
+pulse_duration = pulse_end - pulse_start
+distance = pulse_duration * 17150
+
+return distance
+```
+
+def motor\_control(distance):
+if distance < 10:
+GPIO.output(MOTOR\_PIN1, False)  # Stop the motor
+GPIO.output(MOTOR\_PIN2, False)
+pwm.ChangeDutyCycle(0)  # Stop the motor
+else:
+\# Adjust motor speed based on distance
+if distance < 20:
+duty\_cycle = 15  # 50% duty cycle
+capture\_image()
+elif distance < 30:
+duty\_cycle = 30  # 75% duty cycle
+else:
+duty\_cycle = 100  # 100% duty cycle
+
+```
+    GPIO.output(MOTOR_PIN1, True)  # Start the motor
+    GPIO.output(MOTOR_PIN2, True)  # Set direction
+    pwm.ChangeDutyCycle(duty_cycle)
+```
+
+# Function to capture image
+
+def capture\_image():
+timestamp = time.strftime("%Y-%m-%d\_%H-%M-%S")
+file\_name = f"/home/pi/Downloads/Module3/captured\_images/image\_{timestamp}.jpg"
+picam2.capture\_file(file\_name)
+print(f"Image captured: {file\_name}")
+
+try:
+while True:
+distance = distance\_measurement()
+print("Distance:", distance, "cm")
+motor\_control(distance)
+
+```
+    if distance < 10:
+        GPIO.output(BUZZER_PIN, True)  # Turn on buzzer
+    else:
+        GPIO.output(BUZZER_PIN, False)  # Turn off buzzer
+
+    time.sleep(0.1)
+```
+
+except KeyboardInterrupt:
+print("Measurement stopped by User")
+GPIO.cleanup()
+
+finally:
+pwm.stop()
+GPIO.cleanup()
+picam2.stop()
+print("System shutdown.")
